@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import('resend')
         const resend = new Resend(resendApiKey)
         
-        const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
-        console.log('[v0] Sending OTP email to:', contact, 'from:', fromEmail)
+        const fromEmail = process.env.RESEND_FROM_EMAIL || 'support@meclients.com'
+        console.log('[v0] Sending OTP email to:', contact, 'from:', fromEmail, 'RESEND_FROM_EMAIL env:', process.env.RESEND_FROM_EMAIL ? 'SET' : 'NOT SET')
         
         const result = await resend.emails.send({
           from: fromEmail,
