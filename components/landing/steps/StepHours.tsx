@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { W } from './shared'
 import PremiumSelect from './PremiumSelect'
+import { updateBusinessHours } from '@/app/actions/onboarding'
 
 const DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
 
@@ -32,9 +33,16 @@ export default function StepHours({ nextStep, prevStep }: any) {
   
   const [tz, setTz] = useState('UTC')
 
-  function handleNext() {
+  async function handleNext() {
     const openDaysList = Object.entries(schedule).filter(([_, v]) => v.isOpen).map(([i]) => DAYS[parseInt(i)])
     const count = openDaysList.length
+    
+    const formattedHours = Object.entries(schedule)
+      .filter(([_, v]) => v.isOpen)
+      .map(([i, v]) => `${DAYS[parseInt(i)]}: ${v.opens}-${v.closes}`)
+      .join(' | ')
+
+    await updateBusinessHours(`TZ: ${tz}. ${formattedHours}`)
     nextStep(`${count} days · ${tz}`)
   }
 

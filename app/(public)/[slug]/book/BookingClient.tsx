@@ -1,8 +1,8 @@
 'use client'
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, ArrowRight, Check } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ArrowRight, Check, Loader2 } from 'lucide-react'
+import { createPublicBooking } from '@/app/actions/bookings'
 
-// Mock Data
 const WEEKS = [
   ['01', '02', '03', '04', '05', '06', '07'],
   ['08', '09', '10', '11', '12', '13', '14'],
@@ -12,12 +12,56 @@ const WEEKS = [
 ]
 const TIMES = ['09:00 AM', '09:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '01:00 PM']
 
-export default function PublicBookingPage() {
+export default function BookingClient({ profile, services, availability }: any) {
   const [selectedDate, setSelectedDate] = useState('13')
   const [selectedTime, setSelectedTime] = useState('10:00 AM')
-  const [step, setStep] = useState(1) // 1: DateTime, 2: Details, 3: Success
-  const [service, setService] = useState('Consultation')
+  const [step, setStep] = useState(1)
   
+  // Form State
+  const [activeService, setActiveService] = useState(services?.[0] || { id: 'mock', name: 'Consultation' })
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleBook() {
+    if (!name || !email || !phone) {
+      setError('Please fill out all fields.')
+      return
+    }
+    setLoading(true)
+    setError('')
+    
+    // Map selectedTime to a proper ISO timestamp for the DB (simplified mapping for now)
+    const baseDate = `2024-04-${selectedDate.padStart(2, '0')}`
+    const timeMatch = selectedTime.match(/(\d+):(\d+) (AM|PM)/)
+    let hours = parseInt(timeMatch![1])
+    if (timeMatch![3] === 'PM' && hours !== 12) hours += 12
+    if (timeMatch![3] === 'AM' && hours === 12) hours = 0
+    const startIso = new Date(`${baseDate}T${hours.toString().padStart(2, '0')}:${timeMatch![2]}:00`).toISOString()
+    const endIso = new Date(new Date(startIso).getTime() + (activeService.duration_mins || 30) * 60000).toISOString()
+
+    const res = await createPublicBooking({
+      tenant_id: profile.tenant_id,
+      service_type_id: activeService.id,
+      caller_name: name,
+      caller_email: email,
+      caller_phone: phone,
+      start_time: startIso,
+      end_time: endIso,
+      timezone: profile.timezone || 'UTC'
+    })
+
+    if (!res.success) {
+      setError(res.error || 'Failed to book.')
+      setLoading(false)
+    } else {
+      setStep(3)
+      setLoading(false)
+    }
+  }
+
   if (step === 2) {
     return (
       <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
@@ -29,14 +73,14 @@ export default function PublicBookingPage() {
           <h2 className="text-2xl font-bold text-[#0F172A] leading-tight mb-8">Confirm your details.</h2>
           
           <div className="space-y-4 mb-8">
-            <input type="text" placeholder="Full Name" className="w-full px-5 py-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl text-[15px] outline-none focus:border-[#2eb87a] focus:bg-white transition-all text-[#0f172a]" />
-            <input type="email" placeholder="Email Address" className="w-full px-5 py-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl text-[15px] outline-none focus:border-[#2eb87a] focus:bg-white transition-all text-[#0f172a]" />
-            <input type="tel" placeholder="Phone Number" className="w-full px-5 py-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl text-[15px] outline-none focus:border-[#2eb87a] focus:bg-white transition-all text-[#0f172a]" />
+            <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Full Name" className="w-full px-5 py-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl text-[15px] outline-none focus:border-[#2eb87a] focus:bg-white transition-all text-[#0f172a]" />
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email Address" className="w-full px-5 py-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl text-[15px] outline-none focus:border-[#2eb87a] focus:bg-white transition-all text-[#0f172a]" />
+            <input type="tel" value={phone} onChange={e=>setPhone(e.target.value)} placeholder="Phone Number" className="w-full px-5 py-4 bg-[#F8FAFC] border border-[#E2E8F0] rounded-2xl text-[15px] outline-none focus:border-[#2eb87a] focus:bg-white transition-all text-[#0f172a]" />
           </div>
 
-          <div className="bg-[#F0FDF8] rounded-2xl p-5 border border-[#c6f6d5] mb-8">
+          <div className="bg-[#F0FDF8] rounded-2xl p-5 border border-[#c6f6d5] mb-6">
             <div className="text-xs font-semibold text-[#16a34a] uppercase tracking-wide mb-1">Appointment</div>
-            <div className="text-[#0f172a] font-medium text-[15px]">{service}</div>
+            <div className="text-[#0f172a] font-medium text-[15px]">{activeService.name}</div>
             <div className="flex gap-4 mt-3 pt-3 border-t border-[#bbf7d0]">
               <div>
                 <div className="text-xs text-[#64748b] mb-0.5">Date</div>
@@ -49,8 +93,10 @@ export default function PublicBookingPage() {
             </div>
           </div>
 
-          <button onClick={() => setStep(3)} className="w-full bg-[#2eb87a] text-white py-4 rounded-full font-semibold text-[15px] hover:bg-[#259b66] transition-colors flex justify-center items-center gap-2 shadow-[0_4px_14px_rgba(46,184,122,0.3)]">
-            Book Appointment <Check size={18} />
+          {error && <p className="text-sm text-red-500 mb-4 bg-red-50 p-3 rounded-xl">{error}</p>}
+
+          <button onClick={handleBook} disabled={loading} className="w-full bg-[#2eb87a] text-white py-4 rounded-full font-semibold text-[15px] hover:bg-[#259b66] transition-colors flex justify-center items-center gap-2 shadow-[0_4px_14px_rgba(46,184,122,0.3)] disabled:opacity-50">
+            {loading ? <Loader2 size={18} className="animate-spin" /> : <>Book Appointment <Check size={18} /></>}
           </button>
         </div>
       </div>
@@ -66,14 +112,20 @@ export default function PublicBookingPage() {
           </div>
           <h2 className="text-2xl font-bold text-[#0F172A] mb-2">Booking Confirmed!</h2>
           <p className="text-[#64748B] text-[15px] leading-relaxed mb-8">We've sent a calendar invitation and confirmation details to your email.</p>
-          <button className="text-[#2eb87a] font-medium hover:text-[#16a34a] transition-colors" onClick={() => setStep(1)}>Book another appointment</button>
+          <button className="text-[#2eb87a] font-medium hover:text-[#16a34a] transition-colors" onClick={() => {setStep(1); setName(''); setEmail(''); setPhone('')}}>Book another appointment</button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-4">
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-4 pt-12">
+      
+      <div className="text-center mb-8 max-w-lg">
+        <h1 className="text-3xl font-bold text-[#0F172A] tracking-tight">{profile.business_name}</h1>
+        <p className="text-[#64748B] mt-2 text-[15px]">{profile.description || profile.tagline || 'Book an appointment with us.'}</p>
+      </div>
+
       <div className="bg-white rounded-[32px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] max-w-[900px] w-full p-6 md:p-10 flex flex-col md:flex-row gap-8 lg:gap-14">
         
         {/* Left: Calendar */}
@@ -124,7 +176,7 @@ export default function PublicBookingPage() {
         {/* Right: Time Slots */}
         <div className="w-full md:w-[320px] flex flex-col">
           <h3 className="text-lg font-bold text-[#0F172A] mb-6 flex items-center">
-            Saturday, 13 April
+            Selected slots on the {selectedDate}th
           </h3>
           
           <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-3 pb-4 max-h-[400px]" style={{ scrollbarWidth: 'thin' }}>

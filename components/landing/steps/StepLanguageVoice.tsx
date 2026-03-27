@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, Check } from 'lucide-react'
 import { W } from './shared'
 import LanguageSelect, { LangItem } from './LanguageSelect'
+import { saveAgentConfiguration } from '@/app/actions/onboarding'
 
 const LANGS: LangItem[] = [
   { flag: '🇺🇸', label: 'English (US)' },
@@ -23,7 +24,7 @@ const VOICES = [
   { icon: '👩‍💼', n: 'Emma', s: 'Friendly' },
 ]
 
-export default function StepLanguageVoice({ nextStep, prevStep }: any) {
+export default function StepLanguageVoice({ nextStep, prevStep, agentConfig }: any) {
   const [lang, setLang] = useState('English (US)')
   const [voice, setVoice] = useState(0)
 
@@ -57,7 +58,16 @@ export default function StepLanguageVoice({ nextStep, prevStep }: any) {
       </div>
       <div style={{...W.btnRowAction, justifyContent: 'space-between', alignItems: 'center'}}>
         <button onClick={prevStep} style={W.backBtn}>← Back</button>
-        <button onClick={() => nextStep(`${lang} · ${VOICES[voice].n}`)} style={{ ...W.gbtn(), padding: '12px 24px' }}>
+        <button onClick={async () => {
+          const vName = VOICES[voice].n
+          const payload = {
+            voice_id: vName.toLowerCase(), // In production, map to real 11labs id
+            language: lang,
+            vertical_pack: agentConfig?.vertical || 'General'
+          }
+          await saveAgentConfiguration(payload)
+          nextStep(`${lang} · ${vName}`)
+        }} style={{ ...W.gbtn(), padding: '12px 24px' }}>
           Continue →
         </button>
       </div>

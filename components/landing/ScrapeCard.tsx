@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef } from 'react'
 import { ArrowRight, Upload } from 'lucide-react'
+import { initiateScrapeJob } from '@/app/actions/onboarding'
 
 const SCRAPE_STEPS = [
   { label: 'Fetching website',               tag: '200 OK',        color: '#2eb87a' },
@@ -23,24 +24,97 @@ export default function ScrapeCard({
   const [phase, setPhase] = useState<'input' | 'scraping'>('input')
   const [steps, setSteps] = useState<StepState[]>(Array(5).fill('idle'))
   const [progress, setProgress] = useState(0)
+  const [err, setErr] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  const FORBIDDEN_DOMAINS = ['amazon.', 'ebay.', 'etsy.', 'yelp.', 'facebook.', 'instagram.', 'twitter.', 'google.', 'linkedin.', 'youtube.']
+
+  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (file.size > 5 * 1024 * 1024) {
+      setErr('File size must be strictly under 5MB.')
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
+    setErr('')
+    setUrl(file.name)
+    // Fast-track mock for testing flow
+    onComplete({ isFile: true, url: file.name })
+  }
 
   async function handleSubmit() {
     if (!url.trim() && phase === 'input') return
-    setPhase('scraping')
+    setErr('')
 
-    const pcts = [20, 42, 62, 80, 100]
-    for (let i = 0; i < SCRAPE_STEPS.length; i++) {
-      await delay(i === 0 ? 100 : 900)
-      setSteps(s => s.map((v, idx) => idx === i ? 'running' : v))
-      await delay(700)
-      setSteps(s => s.map((v, idx) => idx === i ? 'done' : v))
-      setProgress(pcts[i])
+    // Validate strict URL TLD constraint
+    if (!url.includes('.') || url.length < 5) {
+      setErr('Please provide a valid website domain containing a Top Level Domain (e.g. .com, .org).')
+      return
     }
 
+    try {
+      const urlObj = new URL(url.startsWith('http') ? url : `https://${url}`)
+      if (FORBIDDEN_DOMAINS.some(d => urlObj.hostname.includes(d))) {
+        setErr('Marketplaces or generic social networks are not permitted. Please use a direct business website.')
+        return
+      }
+    } catch (e) {
+      setErr('Please provide a valid website URL.')
+      return
+    }
+
+    // 5-use LocalStorage Constraint with 24-hour reset
+    const now = Date.now()
+    const storedStr = localStorage.getItem('mc_scrape_limit_data')
+    let storedData = { count: 0, timestamp: now }
+    
+    if (storedStr) {
+      try { storedData = JSON.parse(storedStr) } catch (e) {}
+    }
+    
+    // Reset count if it has been strictly over 24 hours (86400000 ms)
+    if (now - storedData.timestamp > 86400000) {
+      storedData.count = 0
+      storedData.timestamp = now
+    }
+
+    if (storedData.count >= 5) {
+      setErr('You have reached the maximum allowed AI test scrapes (5) for today. Please try again in 24 hours.')
+      return
+    }
+    
+    localStorage.setItem('mc_scrape_limit_data', JSON.stringify({
+      count: storedData.count + 1,
+      timestamp: storedData.timestamp
+    }))
+
+    setPhase('scraping')
+
+    // Simulate initial sequence while waiting for network
+    setSteps(s => s.map((v, idx) => idx === 0 ? 'running' : v))
+    setProgress(20)
+
+    // Execute ACTUAL Firecrawl fetch behind the scenes
+    const res = await initiateScrapeJob(url)
+
+    if (!res.success) {
+      setPhase('input')
+      setErr(res.error || 'Failed to analyze this website. It may be blocking scrapers.')
+      return
+    }
+
+    // Fast-forward completion
+    setSteps(s => s.map(() => 'done'))
+    setProgress(100)
     await delay(600)
-    // In production: call /api/scrape and pass real data
-    onComplete({ businessName: 'Smith Dental Clinic', url, industry: 'dental' })
+    
+    onComplete({ 
+      businessName: res.meta?.businessName || 'Analyzed Business', 
+      url, 
+      industry: res.meta?.industry || 'custom', 
+      markdown: res.meta?.scraped_markdown_snippet 
+    })
   }
 
   function delay(ms: number) { return new Promise(r => setTimeout(r, ms)) }
@@ -81,11 +155,12 @@ export default function ScrapeCard({
               }}
             />
           </div>
+          {err && <div style={{ fontSize: 13, color: '#ef4444', backgroundColor: '#fff8f8', padding: '8px 14px', borderTop: '1px solid #fecaca' }}>{err}</div>}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', background: '#f8f8f8' }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, border: '1px solid #e0e0e0', borderRadius: 20, padding: '6px 14px', fontSize: 13, color: '#666', background: '#fff', cursor: 'pointer' }}>
               <Upload size={13} />
               Upload PDF instead
-              <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }} />
+              <input ref={fileRef} type="file" accept=".pdf" onChange={handleFileUpload} style={{ display: 'none' }} />
             </label>
             <button
               onClick={handleSubmit}

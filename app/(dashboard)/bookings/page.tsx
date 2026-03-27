@@ -1,20 +1,70 @@
 import { createServerClient } from '@/lib/supabase/server'
 import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Clock, User, Filter } from 'lucide-react'
 
+import { getDashboardBookings } from '@/app/actions/tenant'
+
 export default async function BookingsPage() {
   const supabase = createServerClient()
   const { data: { user } } = await supabase.auth.getUser()
 
-  // MOCK: Fetch real bookings later
-  const mockBookings = [
-    { id: 1, title: 'Dental Consultation', client: 'Alice Freeman', time: '10:00 AM - 11:00 AM', day: 2, color: 'bg-emerald-100 border-emerald-300 text-emerald-800', top: '25%', height: '10%' },
-    { id: 2, title: 'Follow-up Check', client: 'John Doe', time: '01:30 PM - 02:00 PM', day: 4, color: 'bg-blue-100 border-blue-300 text-blue-800', top: '55%', height: '8%' },
-    { id: 3, title: 'Emergency Repair', client: 'Mark S.', time: '03:00 PM - 04:30 PM', day: 5, color: 'bg-amber-100 border-amber-300 text-amber-800', top: '70%', height: '15%' },
-    { id: 4, title: 'Initial Intake', client: 'Sarah Connor', time: '09:00 AM - 09:30 AM', day: 1, color: 'bg-purple-100 border-purple-300 text-purple-800', top: '15%', height: '5%' }
-  ]
+  // Fallback dates: Current week Mon-Sun
+  const now = new Date()
+  const day = now.getDay()
+  const diff = now.getDate() - day + (day == 0 ? -6 : 1) // adjust when day is sunday
+  const startOfWeek = new Date(now.setDate(diff))
+  startOfWeek.setHours(0, 0, 0, 0)
+  
+  const endOfWeek = new Date(startOfWeek)
+  endOfWeek.setDate(startOfWeek.getDate() + 6)
+  endOfWeek.setHours(23, 59, 59, 999)
 
-  const hours = Array.from({ length: 11 }, (_, i) => i + 8) // 8am to 6pm
-  const days = ['Mon 8', 'Tue 9', 'Wed 10', 'Thu 11', 'Fri 12', 'Sat 13', 'Sun 14']
+  const dbBookings = await getDashboardBookings(startOfWeek.toISOString(), endOfWeek.toISOString())
+
+  const mappedBookings = dbBookings.map((b: any, index: number) => {
+    const startDate = new Date(b.start_time)
+    const endDate = new Date(b.end_time)
+    
+    // Grid maps from 8 AM to 6 PM (10 hours total duration)
+    const startHour = startDate.getHours() + startDate.getMinutes() / 60
+    const endHour = endDate.getHours() + endDate.getMinutes() / 60
+    
+    // Example: 10 AM is 2 hours from 8 AM. 2 / 10 = 20%
+    const topPct = ((startHour - 8) / 10) * 100
+    const heightPct = ((endHour - startHour) / 10) * 100
+    
+    // Day index (Mon = 0, Sun = 6)
+    const dayIndex = (startDate.getDay() + 6) % 7
+    
+    // Alternate colors for aesthetic
+    const colors = [
+      'bg-emerald-100 border-emerald-300 text-emerald-800',
+      'bg-purple-100 border-purple-300 text-purple-800',
+      'bg-blue-100 border-blue-300 text-blue-800',
+      'bg-amber-100 border-amber-300 text-amber-800'
+    ]
+
+    return {
+      id: b.id,
+      title: b.service_types?.name || 'Appointment',
+      client: b.caller_name,
+      time: `${startDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})} - ${endDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`,
+      day: dayIndex,
+      color: colors[index % colors.length],
+      top: `${Math.max(0, topPct)}%`,
+      height: `${Math.max(2, heightPct)}%`
+    }
+  })
+
+  // Hours for grid UI (8 AM to 6 PM)
+  const hours = Array.from({ length: 11 }, (_, i) => i + 8) 
+  
+  // Format the visual days array to match the current week
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(startOfWeek)
+    d.setDate(startOfWeek.getDate() + i)
+    return `${d.toLocaleDateString('en-US', { weekday: 'short' })} ${d.getDate()}`
+  })
+
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col animate-fade-in bg-white">
@@ -110,7 +160,7 @@ export default async function BookingsPage() {
               
               {Array.from({length: 7}).map((_, colIdx) => (
                 <div key={colIdx} className="col-span-1 relative pointer-events-auto h-full">
-                  {mockBookings.filter(b => b.day === colIdx).map(booking => {
+                  {mappedBookings.filter((b: any) => b.day === colIdx).map((booking: any) => {
                     return (
                       <div 
                         key={booking.id}

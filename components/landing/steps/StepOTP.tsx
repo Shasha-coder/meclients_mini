@@ -1,24 +1,26 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { GreenCard, W } from './shared'
+import { createBrowserClient } from '@/lib/supabase/client'
 
 type OtpState = 'waiting' | 'expired' | 'incorrect' | 'verified'
 
-export default function StepOTP({ nextStep, prevStep, agentSay, setInputPlaceholder, setInputDisabled, inputVal }: any) {
+export default function StepOTP({ nextStep, prevStep, agentSay, setInputPlaceholder, setInputDisabled, inputVal, authData }: any) {
   const [otpState, setOtpState] = useState<OtpState>('waiting')
   const [secs, setSecs] = useState(60)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const supabase = createBrowserClient()
 
   useEffect(() => {
     startTimer()
-    setInputPlaceholder('Paste your 4-digit code…')
+    setInputPlaceholder('Paste your 6-digit code…')
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [])
 
-  // Watch inputVal — validate when 4 digits entered
+  // Watch inputVal — validate when 6 digits entered
   useEffect(() => {
     const v = (inputVal || '').replace(/\D/g, '')
-    if (v.length === 4) validateCode(v)
+    if (v.length === 6 && otpState === 'waiting') validateCode(v)
   }, [inputVal])
 
   function startTimer() {
@@ -36,23 +38,39 @@ export default function StepOTP({ nextStep, prevStep, agentSay, setInputPlacehol
     }, 1000)
   }
 
-  function resend() {
+  async function resend() {
     setOtpState('waiting')
-    agentSay('New code sent!')
+    if (authData.type === 'email') await supabase.auth.signInWithOtp({ email: authData.value })
+    if (authData.type === 'phone') await supabase.auth.signInWithOtp({ phone: authData.value })
+    agentSay('New secure code sent!')
     startTimer()
+    setInputPlaceholder('Paste your 6-digit code…')
+    setInputDisabled(false)
   }
 
-  function validateCode(code: string) {
-    // Demo: any 4-digit code passes. Real: compare to stored code.
-    const valid = /^\d{4}$/.test(code)
-    if (valid) {
+  async function validateCode(code: string) {
+    if (!authData || !authData.value) {
+      setOtpState('incorrect')
+      return
+    }
+
+    setInputDisabled(true)
+    
+    const otpParams = authData.type === 'email' 
+      ? { email: authData.value, token: code, type: 'email' as const }
+      : { phone: authData.value, token: code, type: 'sms' as const };
+      
+    const { error } = await supabase.auth.verifyOtp(otpParams as any);
+
+    if (!error) {
       clearInterval(timerRef.current!)
       setOtpState('verified')
-      setInputDisabled(true)
       setInputPlaceholder('Verified ✓')
-      setTimeout(() => nextStep(null, '✓ Verified'), 1000)
+      setTimeout(() => nextStep(null, '✓ Verified securely'), 800)
     } else {
       setOtpState('incorrect')
+      setInputDisabled(false)
+      setInputPlaceholder('Try again...')
     }
   }
 

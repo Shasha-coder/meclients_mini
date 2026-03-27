@@ -12,7 +12,7 @@ const AGENTS = [
   { icon: '💊', name: 'Medical',     desc: 'GP, prescriptions' },
 ]
 
-export default function StepAgent({ nextStep, prevStep, scrapedData }: any) {
+export default function StepAgent({ nextStep, prevStep, scrapedData, setAgentConfig }: any) {
   const [sel, setSel] = useState(0) // pre-select Dental
   const [custom, setCustom] = useState('')
 
@@ -31,6 +31,7 @@ export default function StepAgent({ nextStep, prevStep, scrapedData }: any) {
         <button onClick={prevStep} style={W.backBtn}>← Back</button>
         <button onClick={() => {
           const v = custom.trim() || AGENTS[sel].name
+          if (setAgentConfig) setAgentConfig((p: any) => ({ ...p, vertical: v }))
           nextStep(v + ' receptionist')
         }} style={{ ...W.gbtn(true), flex: 1 }}>
           Next Step

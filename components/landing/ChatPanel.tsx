@@ -8,12 +8,13 @@ import StepLanguageVoice from './steps/StepLanguageVoice'
 import StepNotifications from './steps/StepNotifications'
 import StepHours from './steps/StepHours'
 import StepGenerate from './steps/StepGenerate'
+import StepStripe from './steps/StepStripe'
 
 export type Msg = { role: 'a' | 'u'; text: string }
 
-export type StepId = 'identify' | 'otp' | 'agent' | 'language' | 'notifications' | 'hours' | 'generate'
+export type StepId = 'identify' | 'otp' | 'agent' | 'language' | 'notifications' | 'hours' | 'stripe'
 
-const STEPS: StepId[] = ['identify', 'otp', 'agent', 'language', 'notifications', 'hours', 'generate']
+const STEPS: StepId[] = ['identify', 'otp', 'agent', 'language', 'notifications', 'hours', 'stripe']
 const TOTAL = STEPS.length
 
 const STEP_LABELS: Record<StepId, string> = {
@@ -23,17 +24,17 @@ const STEP_LABELS: Record<StepId, string> = {
   language:      '● Language & voice',
   notifications: '● Notifications',
   hours:         '● Business hours',
-  generate:      '● Building…',
+  stripe:        '● Activation',
 }
 
 const STEP_MESSAGES: Record<StepId, string> = {
-  identify:      "I've read your site — Smith Dental Clinic. To continue, enter your email or phone. 📱 Phone gets instant SMS notifications.",
+  identify:      '', // handled dynamically
   otp:           '', // injected after identify
-  agent:         "Your site suggests healthcare — I've pre-selected Dental. Confirm or switch.",
+  agent:         '', // handled dynamically
   language:      'What language and voice should your agent use with callers?',
   notifications: 'How should I notify you after each call?',
   hours:         "I found your address but not your hours. Set them or skip — update anytime.",
-  generate:      '',
+  stripe:        'Your AI agent is ready! Activate your subscription to take it live.',
 }
 
 export default function ChatPanel({
@@ -51,13 +52,21 @@ export default function ChatPanel({
   const [inputPlaceholder, setInputPlaceholder] = useState('Type your answer…')
   const [inputDisabled, setInputDisabled] = useState(false)
   const [started, setStarted] = useState(false)
+  const [authData, setAuthData] = useState({ type: '', value: '' })
+  const [agentConfig, setAgentConfig] = useState({ vertical: 'Dental', language: 'English (US)', voice: 'James' })
   const msgsRef = useRef<HTMLDivElement>(null)
 
   const step = STEPS[stepIdx]
   const progress = Math.round((stepIdx / TOTAL) * 100)
 
+  const getStepMessage = (id: StepId) => {
+    if (id === 'identify') return `I've read your site — ${scrapedData?.businessName || 'your business'}. To continue, enter your email or phone. 📱 Phone gets instant SMS notifications.`
+    if (id === 'agent') return `Based on your site, I've pre-selected the ${scrapedData?.industry || 'Dental'} industry. Confirm or switch.`
+    return STEP_MESSAGES[id]
+  }
+
   useEffect(() => {
-    if (open && !started) { setStarted(true); setTimeout(() => agentSay(STEP_MESSAGES.identify), 800) }
+    if (open && !started) { setStarted(true); setTimeout(() => agentSay(getStepMessage('identify')), 800) }
   }, [open])
 
   function scrollBottom() { setTimeout(() => { if (msgsRef.current) msgsRef.current.scrollTop = msgsRef.current.scrollHeight }, 50) }
@@ -82,7 +91,7 @@ export default function ChatPanel({
     if (next >= STEPS.length) return
     setStepIdx(next)
     const nextId = STEPS[next]
-    const msg = STEP_MESSAGES[nextId]
+    const msg = getStepMessage(nextId)
     if (msg) setTimeout(() => agentSay(msg), 400)
     setInputVal('')
     setInputState('idle')
@@ -108,12 +117,12 @@ export default function ChatPanel({
     const next = stepIdx + 1
     if (next < STEPS.length) {
       setStepIdx(next)
-      const msg = STEP_MESSAGES[STEPS[next]]
+      const msg = getStepMessage(STEPS[next])
       if (msg) setTimeout(() => agentSay(msg), 400)
     }
   }
 
-  const stepProps = { scrapedData, agentSay, userSay, nextStep, prevStep, setInputPlaceholder, setInputDisabled, setInputState, inputVal }
+  const stepProps = { scrapedData, agentSay, userSay, nextStep, prevStep, setInputPlaceholder, setInputDisabled, setInputState, inputVal, authData, setAuthData, agentConfig, setAgentConfig }
 
   return (
     <div style={{
@@ -240,7 +249,7 @@ export default function ChatPanel({
           {step === 'language'      && <StepLanguageVoice {...stepProps} />}
           {step === 'notifications' && <StepNotifications {...stepProps} />}
           {step === 'hours'         && <StepHours {...stepProps} />}
-          {step === 'generate'      && <StepGenerate {...stepProps} />}
+          {step === 'stripe'        && <StepStripe {...stepProps} />}
         </div>
       </div>
 
