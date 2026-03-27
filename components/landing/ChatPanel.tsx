@@ -3,6 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { Send } from 'lucide-react'
 import StepIdentify from './steps/StepIdentify'
 import StepOTP from './steps/StepOTP'
+import StepAnalysis from './steps/StepAnalysis'
 import StepAgent from './steps/StepAgent'
 import StepLanguageVoice from './steps/StepLanguageVoice'
 import StepNotifications from './steps/StepNotifications'
@@ -12,29 +13,31 @@ import StepStripe from './steps/StepStripe'
 
 export type Msg = { role: 'a' | 'u'; text: string }
 
-export type StepId = 'identify' | 'otp' | 'agent' | 'language' | 'notifications' | 'hours' | 'stripe'
+export type StepId = 'identify' | 'otp' | 'analysis' | 'agent' | 'language' | 'notifications' | 'hours' | 'generate'
 
-const STEPS: StepId[] = ['identify', 'otp', 'agent', 'language', 'notifications', 'hours', 'stripe']
+const STEPS: StepId[] = ['identify', 'otp', 'analysis', 'agent', 'language', 'notifications', 'hours', 'generate']
 const TOTAL = STEPS.length
 
 const STEP_LABELS: Record<StepId, string> = {
-  identify:      '● Identification',
-  otp:           '● Verification',
-  agent:         '● Agent type',
-  language:      '● Language & voice',
-  notifications: '● Notifications',
-  hours:         '● Business hours',
-  stripe:        '● Activation',
+  identify:      'Identification',
+  otp:           'Verification',
+  analysis:      'Data Analysis',
+  agent:         'Agent Type',
+  language:      'Language & Voice',
+  notifications: 'Notifications',
+  hours:         'Business Hours',
+  generate:      'Deploy Agent',
 }
 
 const STEP_MESSAGES: Record<StepId, string> = {
   identify:      '', // handled dynamically
   otp:           '', // injected after identify
+  analysis:      'Let me analyze your business data to see what we have...',
   agent:         '', // handled dynamically
   language:      'What language and voice should your agent use with callers?',
   notifications: 'How should I notify you after each call?',
   hours:         "I found your address but not your hours. Set them or skip — update anytime.",
-  stripe:        'Your AI agent is ready! Activate your subscription to take it live.',
+  generate:      'Everything looks great! Let me create your AI receptionist...',
 }
 
 export default function ChatPanel({
@@ -54,6 +57,7 @@ export default function ChatPanel({
   const [started, setStarted] = useState(false)
   const [authData, setAuthData] = useState({ type: '', value: '' })
   const [agentConfig, setAgentConfig] = useState({ vertical: 'Dental', language: 'English (US)', voice: 'James' })
+  const [localScrapedData, setLocalScrapedData] = useState<any>(scrapedData || {})
   const msgsRef = useRef<HTMLDivElement>(null)
 
   const step = STEPS[stepIdx]
@@ -122,7 +126,7 @@ export default function ChatPanel({
     }
   }
 
-  const stepProps = { scrapedData, agentSay, userSay, nextStep, prevStep, setInputPlaceholder, setInputDisabled, setInputState, inputVal, authData, setAuthData, agentConfig, setAgentConfig }
+  const stepProps = { scrapedData: localScrapedData, setScrapedData: setLocalScrapedData, agentSay, userSay, nextStep, prevStep, setInputPlaceholder, setInputDisabled, setInputState, inputVal, authData, setAuthData, agentConfig, setAgentConfig }
 
   return (
     <div style={{
@@ -139,16 +143,21 @@ export default function ChatPanel({
     }}>
 
       {/* HEADER */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 18px', borderBottom: '1px solid #eef7f2' }}>
-        <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#2eb87a', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
+      <div className="flex items-center gap-3 px-4 py-3 md:px-5 md:py-4 border-b border-[#eef7f2]">
+        <div className="w-9 h-9 md:w-10 md:h-10 rounded-full bg-gradient-to-br from-[#2eb87a] to-[#22c55e] flex items-center justify-center flex-shrink-0 shadow-md">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg>
         </div>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>meclients</div>
-          <div style={{ fontSize: 11, color: '#2eb87a' }}>{STEP_LABELS[step] || '● Setting up'}</div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm md:text-base font-semibold text-[#111] truncate">meclients</div>
+          <div className="text-xs text-[#2eb87a] font-medium flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#2eb87a] animate-pulse"></span>
+            {STEP_LABELS[step] || 'Setting up'}
+          </div>
         </div>
-        <span style={{ fontSize: 10, color: '#2eb87a', background: '#f0fdf8', border: '1px solid #b6e8d3', borderRadius: 6, padding: '3px 8px', fontWeight: 600 }}>AI</span>
-        <span style={{ fontSize: 10, color: '#aaa', marginLeft: 6 }}>{stepIdx + 1} / {TOTAL}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-[#2eb87a] bg-[#f0fdf8] border border-[#b6e8d3] rounded-md px-2 py-1 font-semibold">AI</span>
+          <span className="text-[11px] text-[#94a3b8] font-medium">{stepIdx + 1}/{TOTAL}</span>
+        </div>
       </div>
 
       {/* PROGRESS */}
@@ -245,11 +254,12 @@ export default function ChatPanel({
         <div className="w-full md:w-[360px] p-5 md:p-6 flex flex-col gap-3 overflow-y-auto bg-white flex-shrink-0 h-[280px] md:h-full">
           {step === 'identify'      && <StepIdentify {...stepProps} />}
           {step === 'otp'           && <StepOTP {...stepProps} />}
+          {step === 'analysis'      && <StepAnalysis {...stepProps} />}
           {step === 'agent'         && <StepAgent {...stepProps} />}
           {step === 'language'      && <StepLanguageVoice {...stepProps} />}
           {step === 'notifications' && <StepNotifications {...stepProps} />}
           {step === 'hours'         && <StepHours {...stepProps} />}
-          {step === 'stripe'        && <StepStripe {...stepProps} />}
+          {step === 'generate'      && <StepGenerate {...stepProps} />}
         </div>
       </div>
 

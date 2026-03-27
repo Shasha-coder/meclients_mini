@@ -1,176 +1,361 @@
+'use client'
 import { useEffect, useState } from 'react'
-import { Mail, Phone, ArrowRight, PhoneCall, PhoneForwarded } from 'lucide-react'
+import { Check, Loader2, Phone, PhoneCall, AlertCircle, ArrowRight, Sparkles } from 'lucide-react'
 import { W } from './shared'
 
-const LOAD_STEPS = [
-  'Compiling knowledge',
-  'Configuring voice',
-  'Setting hours',
-  'Provisioning number',
-  'Quality check',
+const PROVISION_STEPS = [
+  { id: 'prompt', label: 'Generating AI personality', icon: Sparkles },
+  { id: 'agent', label: 'Creating voice agent', icon: PhoneCall },
+  { id: 'number', label: 'Provisioning phone number', icon: Phone },
+  { id: 'connect', label: 'Connecting systems', icon: Check },
 ]
 
-type LoadState = 'idle' | 'running' | 'done'
-type Phase = 'loading' | 'ready'
+type StepStatus = 'pending' | 'running' | 'done' | 'error'
+type Phase = 'provisioning' | 'ready' | 'error'
 
-export default function StepGenerate({ agentSay, prevStep }: any) {
-  const [phase, setPhase] = useState<Phase>('loading')
-  const [loadStates, setLoadStates] = useState<LoadState[]>(LOAD_STEPS.map(() => 'idle'))
-  const [loadTxt, setLoadTxt] = useState('Building your AI receptionist…')
-  const [progress, setProgress] = useState(0)
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
-  const [loadingCheckout, setLoadingCheckout] = useState(false)
-
-  const isValid = email.includes('@') && phone.length > 6
-
-  async function handleCheckout() {
-    if (!isValid) return
-    setLoadingCheckout(true)
-    try {
-      const res = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, phone })
-      })
-      const data = await res.json()
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        alert('Error initiating checkout.')
-      }
-    } catch(err) {
-      console.error(err)
-      alert('Error initiating checkout.')
-    } finally {
-      setLoadingCheckout(false)
-    }
-  }
+export default function StepGenerate({ 
+  agentSay, 
+  prevStep, 
+  scrapedData, 
+  agentConfig,
+}: any) {
+  const [phase, setPhase] = useState<Phase>('provisioning')
+  const [stepStatuses, setStepStatuses] = useState<Record<string, StepStatus>>(
+    Object.fromEntries(PROVISION_STEPS.map(s => [s.id, 'pending']))
+  )
+  const [provisionResult, setProvisionResult] = useState<{
+    agentId?: string
+    phoneNumber?: string
+    sipTrunkSid?: string
+  } | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    runLoading()
+    runProvisioning()
   }, [])
 
-  async function runLoading() {
-    const pcts = [72, 79, 86, 93, 100]
-    for (let i = 0; i < LOAD_STEPS.length; i++) {
-      await delay(i === 0 ? 200 : 600)
-      setLoadStates(s => s.map((v, idx) => idx === i ? 'running' : idx < i ? 'done' : 'idle'))
-      setLoadTxt(LOAD_STEPS[i] + '…')
+  async function runProvisioning() {
+    try {
+      // Step 1: Generating prompt
+      setStepStatuses(prev => ({ ...prev, prompt: 'running' }))
+      await delay(800)
+      setStepStatuses(prev => ({ ...prev, prompt: 'done' }))
+
+      // Step 2: Creating agent
+      setStepStatuses(prev => ({ ...prev, agent: 'running' }))
+      
+      // Make the actual API call
+      const res = await fetch('/api/provision', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          businessName: scrapedData?.businessName || scrapedData?.name || 'My Business',
+          industry: scrapedData?.industry || 'other',
+          services: scrapedData?.services || '',
+          hours: scrapedData?.hours || '',
+          phone: scrapedData?.phone || '',
+          address: scrapedData?.address || '',
+          language: agentConfig?.language || 'English (US)',
+          voice: agentConfig?.voice || 'James',
+          scrapedData,
+        }),
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to provision agent')
+      }
+
+      setStepStatuses(prev => ({ ...prev, agent: 'done' }))
+
+      // Step 3: Phone number provisioned
+      setStepStatuses(prev => ({ ...prev, number: 'running' }))
       await delay(600)
-      setLoadStates(s => s.map((v, idx) => idx <= i ? 'done' : 'idle'))
-      setProgress(pcts[i])
+      setStepStatuses(prev => ({ ...prev, number: 'done' }))
+
+      // Step 4: Connecting
+      setStepStatuses(prev => ({ ...prev, connect: 'running' }))
+      await delay(500)
+      setStepStatuses(prev => ({ ...prev, connect: 'done' }))
+
+      setProvisionResult({
+        agentId: data.agentId,
+        phoneNumber: data.phoneNumber,
+        sipTrunkSid: data.sipTrunkSid,
+      })
+
+      setPhase('ready')
+      agentSay(`Your AI receptionist is live! Your dedicated number is ${data.phoneNumber}. Test it now!`)
+
+    } catch (err: any) {
+      console.error('Provisioning error:', err)
+      setError(err.message || 'Failed to create your agent')
+      setPhase('error')
+      
+      // Mark current running step as error
+      setStepStatuses(prev => {
+        const updated = { ...prev }
+        for (const key in updated) {
+          if (updated[key] === 'running') {
+            updated[key] = 'error'
+          }
+        }
+        return updated
+      })
+
+      agentSay('There was an issue creating your agent. Please try again or contact support.')
     }
-    await delay(500)
-    setPhase('ready')
-    agentSay('🎉 Your AI receptionist is ready! Test it before paying — no card needed yet.')
   }
 
-  function delay(ms: number) { return new Promise(r => setTimeout(r, ms)) }
+  function delay(ms: number) {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
 
-  if (phase === 'loading') {
+  function formatPhoneNumber(phone: string) {
+    if (!phone) return ''
+    // Format as (XXX) XXX-XXXX for US numbers
+    const cleaned = phone.replace(/\D/g, '')
+    if (cleaned.length === 11 && cleaned[0] === '1') {
+      return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`
+    }
+    return phone
+  }
+
+  // Provisioning state
+  if (phase === 'provisioning') {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, padding: 8 }}>
-        <div style={{ width: 36, height: 36, border: '3px solid #d4f0e5', borderTopColor: '#2eb87a', borderRadius: '50%', animation: 'spin .8s linear infinite' }} />
-        <div style={{ fontSize: 12, color: '#2eb87a', fontWeight: 500 }}>{loadTxt}</div>
-        <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {LOAD_STEPS.map((s, i) => (
-            <div key={i} style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 8, color: loadStates[i] === 'done' ? '#2eb87a' : loadStates[i] === 'running' ? '#111' : '#aaa', fontWeight: loadStates[i] === 'running' ? 500 : 400 }}>
-              <span style={{ width: 10, height: 10, borderRadius: '50%', flexShrink: 0, background: loadStates[i] === 'done' ? '#2eb87a' : loadStates[i] === 'running' ? '#fcd34d' : '#f0f0f0', display: 'block' }} />
-              {s}
-            </div>
-          ))}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '20px 0' }}>
+        {/* Header */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ 
+            width: 64, 
+            height: 64, 
+            margin: '0 auto 16px',
+            borderRadius: 20,
+            background: 'linear-gradient(135deg, #2eb87a 0%, #22c55e 100%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 8px 32px rgba(46, 184, 122, 0.3)',
+          }}>
+            <Loader2 size={32} color="white" className="animate-spin" />
+          </div>
+          <h3 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: '0 0 8px' }}>
+            Creating Your Agent
+          </h3>
+          <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>
+            This usually takes about 30 seconds
+          </p>
         </div>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+
+        {/* Progress steps */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {PROVISION_STEPS.map((step, i) => {
+            const status = stepStatuses[step.id]
+            const Icon = step.icon
+            
+            return (
+              <div 
+                key={step.id}
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 14,
+                  padding: '14px 16px',
+                  borderRadius: 12,
+                  background: status === 'done' ? '#f0fdf4' : status === 'running' ? '#fefce8' : '#f8fafc',
+                  border: `1px solid ${status === 'done' ? '#bbf7d0' : status === 'running' ? '#fef08a' : '#e2e8f0'}`,
+                  transition: 'all 0.3s ease',
+                }}
+              >
+                <div style={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: 10,
+                  background: status === 'done' ? '#22c55e' : status === 'running' ? '#fbbf24' : '#e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                }}>
+                  {status === 'done' ? (
+                    <Check size={18} color="white" strokeWidth={3} />
+                  ) : status === 'running' ? (
+                    <Loader2 size={18} color="white" className="animate-spin" />
+                  ) : (
+                    <Icon size={18} color="#94a3b8" />
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ 
+                    fontSize: 14, 
+                    fontWeight: 600, 
+                    color: status === 'done' ? '#166534' : status === 'running' ? '#854d0e' : '#64748b',
+                    margin: 0,
+                  }}>
+                    {step.label}
+                  </p>
+                </div>
+                {status === 'done' && (
+                  <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>Complete</span>
+                )}
+              </div>
+            )
+          })}
+        </div>
       </div>
     )
   }
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '16px 8px', textAlign: 'center' }}>
-      
-      {/* Custom Pro Icon */}
-      <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#F0FDF4', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
-        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 3v18" />
-          <path d="M3 12h18" />
-          <path d="M7 7l10 10" />
-          <path d="M17 7L7 17" />
-          <path d="M16 4h4v4" />
-        </svg>
-      </div>
-
-      <div style={{ fontSize: 32, fontWeight: 800, color: '#0B1527', letterSpacing: '-0.02em', marginBottom: 16 }}>
-        Agent Ready
-      </div>
-      
-      <div style={{ fontSize: 18, color: '#64748B', lineHeight: 1.4, padding: '0 10px', maxWidth: 400, marginBottom: 32 }}>
-        Your AI receptionist has been compiled. Test it completely free before deployment.
-      </div>
-      
-      {/* Cards Row */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12, width: '100%', marginBottom: 32 }}>
-        <div style={{ width: '100%', padding: '16px 20px', borderRadius: 12, background: '#fff', border: '1px solid #E2E8F0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'all .2s', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          <div style={{ width: 42, height: 42, background: '#F0F9FF', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <PhoneCall size={20} color="#0ea5e9" strokeWidth={2} />
-          </div>
-          <div style={{ textAlign: 'left', flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#334155', marginBottom: 2 }}>Web Call</div>
-            <div style={{ fontSize: 13, color: '#64748B' }}>Talk right in your browser</div>
-          </div>
-          <ArrowRight size={16} color="#CBD5E1" />
+  // Error state
+  if (phase === 'error') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 20, padding: '32px 16px', textAlign: 'center' }}>
+        <div style={{
+          width: 64,
+          height: 64,
+          borderRadius: 20,
+          background: '#fef2f2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <AlertCircle size={32} color="#ef4444" />
         </div>
-
-        <div style={{ width: '100%', padding: '16px 20px', borderRadius: 12, background: '#fff', border: '1px solid #E2E8F0', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16, transition: 'all .2s', boxShadow: '0 2px 8px rgba(0,0,0,0.03)' }}>
-          <div style={{ width: 42, height: 42, background: '#F0FDF4', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <PhoneForwarded size={20} color="#10b981" strokeWidth={2} />
-          </div>
-          <div style={{ textAlign: 'left', flex: 1 }}>
-            <div style={{ fontSize: 15, fontWeight: 600, color: '#334155', marginBottom: 2 }}>Phone Call</div>
-            <div style={{ fontSize: 13, color: '#64748B' }}>Request an instant callback</div>
-          </div>
-          <ArrowRight size={16} color="#CBD5E1" />
+        <div>
+          <h3 style={{ fontSize: 18, fontWeight: 700, color: '#0f172a', margin: '0 0 8px' }}>
+            Something went wrong
+          </h3>
+          <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>
+            {error || 'Failed to create your agent. Please try again.'}
+          </p>
         </div>
-      </div>
-
-      <div style={{ width: '100%', height: 1, background: '#F1F5F9', marginBottom: 24 }} />
-
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div style={{ width: '100%', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #F1F5F9' }}>
-            <Mail size={18} color="#94A3B8" strokeWidth={1.5} />
-            <input 
-              type="email" 
-              placeholder="Work Email" 
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, color: '#334155', marginLeft: 12 }}
-            />
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px' }}>
-            <Phone size={18} color="#94A3B8" strokeWidth={1.5} />
-            <input 
-              type="tel" 
-              placeholder="Phone Number (Required)" 
-              value={phone}
-              onChange={e => setPhone(e.target.value)}
-              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, color: '#334155', marginLeft: 12 }}
-            />
-          </div>
-        </div>
-
-        <div style={{...W.btnRowAction, marginTop: 4}}>
-          <button onClick={prevStep} style={{...W.backBtn, padding: '15px 18px', borderRadius: 16}}>← Back</button>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <button onClick={prevStep} style={W.backBtn}>
+            Go Back
+          </button>
           <button 
-            onClick={handleCheckout}
-            disabled={loadingCheckout || !isValid}
-            style={{ flex: 1, padding: '15px', borderRadius: 16, background: (loadingCheckout || !isValid) ? '#E2E8F0' : '#2eb87a', color: (loadingCheckout || !isValid) ? '#94A3B8' : '#fff', border: 'none', fontSize: 15, fontWeight: 600, cursor: (loadingCheckout || !isValid) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all .2s', boxShadow: (!loadingCheckout && isValid) ? '0 8px 20px rgba(46,184,122,0.3)' : 'none' }}>
-            {loadingCheckout ? 'Secure checkout...' : (
-              <>Deploy Agent <ArrowRight size={16} strokeWidth={2} /></>
-            )}
+            onClick={() => {
+              setPhase('provisioning')
+              setError(null)
+              setStepStatuses(Object.fromEntries(PROVISION_STEPS.map(s => [s.id, 'pending'])))
+              runProvisioning()
+            }}
+            style={{
+              ...W.gbtn(false),
+              padding: '12px 24px',
+              borderRadius: 12,
+            }}
+          >
+            Try Again
           </button>
         </div>
       </div>
+    )
+  }
+
+  // Ready state
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 24, padding: '24px 0' }}>
+      {/* Success header */}
+      <div style={{ textAlign: 'center' }}>
+        <div style={{
+          width: 72,
+          height: 72,
+          margin: '0 auto 16px',
+          borderRadius: 24,
+          background: 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 12px 40px rgba(34, 197, 94, 0.4)',
+        }}>
+          <Check size={36} color="white" strokeWidth={3} />
+        </div>
+        <h3 style={{ fontSize: 24, fontWeight: 800, color: '#0f172a', margin: '0 0 8px', letterSpacing: '-0.02em' }}>
+          Agent Live!
+        </h3>
+        <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>
+          Your AI receptionist is ready to take calls
+        </p>
+      </div>
+
+      {/* Phone number display */}
+      {provisionResult?.phoneNumber && (
+        <div style={{
+          width: '100%',
+          padding: '20px',
+          borderRadius: 16,
+          background: 'linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%)',
+          border: '2px solid #bbf7d0',
+          textAlign: 'center',
+        }}>
+          <p style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Your Dedicated Number
+          </p>
+          <p style={{ fontSize: 28, fontWeight: 800, color: '#166534', margin: 0, fontFamily: 'monospace', letterSpacing: '0.02em' }}>
+            {formatPhoneNumber(provisionResult.phoneNumber)}
+          </p>
+        </div>
+      )}
+
+      {/* Test call CTA */}
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <button
+          onClick={() => {
+            if (provisionResult?.phoneNumber) {
+              window.location.href = `tel:${provisionResult.phoneNumber}`
+            }
+          }}
+          style={{
+            width: '100%',
+            padding: '16px 24px',
+            borderRadius: 14,
+            background: '#2eb87a',
+            color: 'white',
+            border: 'none',
+            fontSize: 16,
+            fontWeight: 700,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 10,
+            boxShadow: '0 8px 24px rgba(46, 184, 122, 0.35)',
+            transition: 'all 0.2s ease',
+          }}
+        >
+          <PhoneCall size={20} />
+          Call Your Agent Now
+        </button>
+
+        <button
+          onClick={prevStep}
+          style={{
+            width: '100%',
+            padding: '14px 24px',
+            borderRadius: 14,
+            background: '#f1f5f9',
+            color: '#64748b',
+            border: 'none',
+            fontSize: 14,
+            fontWeight: 600,
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+        >
+          <ArrowRight size={16} style={{ transform: 'rotate(180deg)' }} />
+          Back to Settings
+        </button>
+      </div>
+
+      <p style={{ fontSize: 12, color: '#94a3b8', textAlign: 'center', margin: 0 }}>
+        Agent ID: {provisionResult?.agentId?.slice(0, 12)}...
+      </p>
     </div>
   )
 }

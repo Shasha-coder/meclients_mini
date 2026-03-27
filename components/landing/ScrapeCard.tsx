@@ -29,7 +29,7 @@ export default function ScrapeCard({
 
   const FORBIDDEN_DOMAINS = ['amazon.', 'ebay.', 'etsy.', 'yelp.', 'facebook.', 'instagram.', 'twitter.', 'google.', 'linkedin.', 'youtube.']
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
     if (file.size > 5 * 1024 * 1024) {
@@ -39,8 +39,46 @@ export default function ScrapeCard({
     }
     setErr('')
     setUrl(file.name)
-    // Fast-track mock for testing flow
-    onComplete({ isFile: true, url: file.name })
+    setPhase('scraping')
+    setSteps(s => s.map((_, idx) => idx === 0 ? 'running' : 'idle'))
+    setProgress(10)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await fetch('/api/extract-pdf', {
+        method: 'POST',
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        setPhase('input')
+        setErr(data.error || 'Failed to extract PDF content')
+        if (fileRef.current) fileRef.current.value = ''
+        return
+      }
+
+      // Animate completion
+      setSteps(s => s.map(() => 'done'))
+      setProgress(100)
+      await delay(600)
+
+      onComplete({
+        isFile: true,
+        source: 'pdf',
+        fileName: file.name,
+        ...data.info,
+        businessName: data.info?.name || file.name.replace('.pdf', ''),
+        industry: data.info?.industry || 'other',
+      })
+    } catch (error: any) {
+      setPhase('input')
+      setErr(error.message || 'Failed to process PDF')
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   async function handleSubmit() {
