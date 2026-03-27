@@ -9,7 +9,6 @@ import StepLanguageVoice from './steps/StepLanguageVoice'
 import StepNotifications from './steps/StepNotifications'
 import StepHours from './steps/StepHours'
 import StepGenerate from './steps/StepGenerate'
-import StepStripe from './steps/StepStripe'
 
 export type Msg = { role: 'a' | 'u'; text: string }
 

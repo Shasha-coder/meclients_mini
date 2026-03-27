@@ -1,12 +1,34 @@
 // lib/supabase/server.ts — Use in Server Components and API Routes
-import { createServerClient as _createServerClient, createServiceClient as _createServiceClient } from '@supabase/ssr'
+import { createServerClient as _createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+// Mock client for when Supabase is not configured
+const mockClient = {
+  auth: {
+    getUser: async () => ({ data: { user: null }, error: null }),
+    signOut: async () => ({ error: null }),
+  },
+  from: () => ({
+    select: () => ({ data: null, error: new Error('Supabase not configured.') }),
+    insert: () => ({ data: null, error: new Error('Supabase not configured.') }),
+    update: () => ({ data: null, error: new Error('Supabase not configured.') }),
+    delete: () => ({ data: null, error: new Error('Supabase not configured.') }),
+    upsert: () => ({ data: null, error: new Error('Supabase not configured.') }),
+  }),
+} as any
+
 export function createServerClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    return mockClient
+  }
+
   const cookieStore = cookies()
   return _createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    url,
+    key,
     {
       cookies: {
         get(name: string) { return cookieStore.get(name)?.value },
@@ -23,9 +45,16 @@ export function createServerClient() {
 
 // For API routes that need elevated access (webhooks, provisioning)
 export function createServiceClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!url || !key) {
+    return mockClient
+  }
+
   return _createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    url,
+    key,
     { cookies: { get: () => undefined, set: () => {}, remove: () => {} } }
   )
 }
