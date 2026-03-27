@@ -58,6 +58,21 @@ export const W = {
     cursor: 'pointer',
   } as React.CSSProperties,
 
+  // Back button
+  backBtn: {
+    padding: '10px 16px',
+    borderRadius: 50,
+    background: '#f1f5f9',
+    color: '#64748b',
+    border: 'none',
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6
+  } as React.CSSProperties,
+
   // Field label
   flbl: {
     fontSize: 10,
@@ -73,6 +88,7 @@ export const W = {
   col: { display: 'flex', flexDirection: 'column' as const, gap: 4 },
   row2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 } as React.CSSProperties,
   btnRow: { display: 'flex', gap: 8, alignItems: 'center' } as React.CSSProperties,
+  btnRowAction: { display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 } as React.CSSProperties,
 }
 
 export function GreenCard({ children, state = 'default' }: { children: React.ReactNode; state?: 'default' | 'err' | 'ok' }) {

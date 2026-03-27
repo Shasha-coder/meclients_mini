@@ -13,7 +13,7 @@ const LOAD_STEPS = [
 type LoadState = 'idle' | 'running' | 'done'
 type Phase = 'loading' | 'ready'
 
-export default function StepGenerate({ agentSay }: any) {
+export default function StepGenerate({ agentSay, prevStep }: any) {
   const [phase, setPhase] = useState<Phase>('loading')
   const [loadStates, setLoadStates] = useState<LoadState[]>(LOAD_STEPS.map(() => 'idle'))
   const [loadTxt, setLoadTxt] = useState('Building your AI receptionist…')
@@ -135,37 +135,41 @@ export default function StepGenerate({ agentSay }: any) {
 
       <div style={{ width: '100%', height: 1, background: '#F1F5F9', marginBottom: 24 }} />
 
-      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ width: '100%', position: 'relative' }}>
-          <Mail size={18} color="#94A3B8" strokeWidth={1.5} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
-          <input 
-            type="email" 
-            placeholder="Work Email" 
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            style={{ width: '100%', padding: '16px 16px 16px 44px', borderRadius: 16, border: '1px solid #E2E8F0', fontSize: 15, outline: 'none', background: '#F8FAFC', color: '#0F172A', transition: 'border .2s' }}
-          />
+      <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ width: '100%', background: '#fff', border: '1px solid #E2E8F0', borderRadius: 16, overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px', borderBottom: '1px solid #F1F5F9' }}>
+            <Mail size={18} color="#94A3B8" strokeWidth={1.5} />
+            <input 
+              type="email" 
+              placeholder="Work Email" 
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, color: '#334155', marginLeft: 12 }}
+            />
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', padding: '14px 16px' }}>
+            <Phone size={18} color="#94A3B8" strokeWidth={1.5} />
+            <input 
+              type="tel" 
+              placeholder="Phone Number (Required)" 
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              style={{ flex: 1, border: 'none', background: 'transparent', outline: 'none', fontSize: 15, color: '#334155', marginLeft: 12 }}
+            />
+          </div>
         </div>
-        <div style={{ width: '100%', position: 'relative' }}>
-          <Phone size={18} color="#94A3B8" strokeWidth={1.5} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)' }} />
-          <input 
-            type="tel" 
-            placeholder="Phone Number (Required)" 
-            value={phone}
-            onChange={e => setPhone(e.target.value)}
-            style={{ width: '100%', padding: '16px 16px 16px 44px', borderRadius: 16, border: '1px solid #E2E8F0', fontSize: 15, outline: 'none', background: '#F8FAFC', color: '#0F172A', transition: 'border .2s' }}
-          />
+
+        <div style={{...W.btnRowAction, marginTop: 4}}>
+          <button onClick={prevStep} style={{...W.backBtn, padding: '15px 18px', borderRadius: 16}}>← Back</button>
+          <button 
+            onClick={handleCheckout}
+            disabled={loadingCheckout || !isValid}
+            style={{ flex: 1, padding: '15px', borderRadius: 16, background: (loadingCheckout || !isValid) ? '#E2E8F0' : '#2eb87a', color: (loadingCheckout || !isValid) ? '#94A3B8' : '#fff', border: 'none', fontSize: 15, fontWeight: 600, cursor: (loadingCheckout || !isValid) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, transition: 'all .2s', boxShadow: (!loadingCheckout && isValid) ? '0 8px 20px rgba(46,184,122,0.3)' : 'none' }}>
+            {loadingCheckout ? 'Secure checkout...' : (
+              <>Deploy Agent <ArrowRight size={16} strokeWidth={2} /></>
+            )}
+          </button>
         </div>
-        <button 
-          onClick={handleCheckout}
-          disabled={loadingCheckout || !isValid}
-          style={{ width: '100%', padding: '18px', borderRadius: 16, background: (loadingCheckout || !isValid) ? '#E2E8F0' : '#0B1527', color: (loadingCheckout || !isValid) ? '#94A3B8' : '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: (loadingCheckout || !isValid) ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, transition: 'all .2s', marginTop: 8, boxShadow: (!loadingCheckout && isValid) ? '0 8px 20px rgba(11,21,39,0.15)' : 'none' }}>
-          {loadingCheckout ? 'Preparing secure checkout...' : (
-            <>
-              Deploy Agent <ArrowRight size={18} strokeWidth={2} />
-            </>
-          )}
-        </button>
       </div>
     </div>
   )

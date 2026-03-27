@@ -90,6 +90,15 @@ export default function ChatPanel({
     setInputDisabled(false)
   }
 
+  function prevStep() {
+    if (stepIdx > 0) {
+      setStepIdx(stepIdx - 1)
+      setInputVal('')
+      setInputDisabled(false)
+      setTimeout(() => agentSay("Going back to the previous step."), 300)
+    }
+  }
+
   // Handle free-text input submission
   function handleSend() {
     const v = inputVal.trim()
@@ -104,12 +113,12 @@ export default function ChatPanel({
     }
   }
 
-  const stepProps = { scrapedData, agentSay, userSay, nextStep, setInputPlaceholder, setInputDisabled, setInputState, inputVal }
+  const stepProps = { scrapedData, agentSay, userSay, nextStep, prevStep, setInputPlaceholder, setInputDisabled, setInputState, inputVal }
 
   return (
     <div style={{
       width: '100%',
-      maxHeight: open ? 450 : 0,
+      maxHeight: open ? 800 : 0,
       overflow: 'hidden',
       transition: 'max-height .5s cubic-bezier(.4,0,.2,1)',
       borderRadius: '20px',
@@ -139,10 +148,10 @@ export default function ChatPanel({
       </div>
 
       {/* SPLIT PANEL CONTENT */}
-      <div style={{ display: 'flex', flexDirection: 'row', height: 310 }}>
+      <div className="flex flex-col md:flex-row h-[550px] md:h-[350px]">
         
         {/* LEFT: CHAT */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderRight: '1px solid #eef7f2', background: '#fafbfc' }}>
+        <div className="flex flex-col md:border-r md:border-b-0 border-b border-[#eef7f2] bg-[#fafbfc]" style={{ flex: '1 1 0%', minHeight: 0 }}>
           <div ref={msgsRef} style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 14, flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
             {msgs.map((m, i) => (
               <div key={i} style={{ display: 'flex', justifyContent: m.role === 'u' ? 'flex-end' : 'flex-start', flexShrink: 0 }}>
@@ -224,7 +233,7 @@ export default function ChatPanel({
         </div>
 
         {/* RIGHT: WIDGET AREA */}
-        <div style={{ width: 340, padding: '24px 20px', display: 'flex', flexDirection: 'column', gap: 12, overflowY: 'auto', background: '#fff', flexShrink: 0 }}>
+        <div className="w-full md:w-[360px] p-5 md:p-6 flex flex-col gap-3 overflow-y-auto bg-white flex-shrink-0 h-[280px] md:h-full">
           {step === 'identify'      && <StepIdentify {...stepProps} />}
           {step === 'otp'           && <StepOTP {...stepProps} />}
           {step === 'agent'         && <StepAgent {...stepProps} />}

@@ -14,10 +14,21 @@ export const metadata: Metadata = {
   },
 }
 
+import Script from 'next/script'
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`}>
-      <body className="font-sans">{children}</body>
+    <html lang="en" className={`${GeistSans.variable} ${GeistMono.variable}`} suppressHydrationWarning>
+      <head />
+      <body className="font-sans" suppressHydrationWarning>
+        <div id="google_translate_element" style={{ display: 'none' }} suppressHydrationWarning></div>
+        {children}
+
+        <Script id="google-translate-init" strategy="afterInteractive">
+          {`function googleTranslateElementInit() { new window.google.translate.TranslateElement({pageLanguage: 'en', autoDisplay: false}, 'google_translate_element'); }`}
+        </Script>
+        <Script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit" strategy="afterInteractive" />
+      </body>
     </html>
   )
 }

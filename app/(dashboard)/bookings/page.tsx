@@ -1,190 +1,139 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { format, startOfWeek, addDays, isSameDay, parseISO } from 'date-fns'
-import { ChevronLeft, ChevronRight, Plus, Calendar, Clock, User, Phone } from 'lucide-react'
-import { createBrowserClient } from '@/lib/supabase/client'
+import { createServerClient } from '@/lib/supabase/server'
+import { ChevronLeft, ChevronRight, Plus, Calendar as CalIcon, Clock, User, Filter } from 'lucide-react'
 
-const HOURS = Array.from({ length: 11 }, (_, i) => i + 8) // 8am to 6pm
+export default async function BookingsPage() {
+  const supabase = createServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
-type Booking = {
-  id: string
-  caller_name: string | null
-  caller_phone: string | null
-  start_time: string
-  end_time: string
-  status: string
-  service_types: { name: string; duration_mins: number } | null
-  notes: string | null
-}
+  // MOCK: Fetch real bookings later
+  const mockBookings = [
+    { id: 1, title: 'Dental Consultation', client: 'Alice Freeman', time: '10:00 AM - 11:00 AM', day: 2, color: 'bg-emerald-100 border-emerald-300 text-emerald-800', top: '25%', height: '10%' },
+    { id: 2, title: 'Follow-up Check', client: 'John Doe', time: '01:30 PM - 02:00 PM', day: 4, color: 'bg-blue-100 border-blue-300 text-blue-800', top: '55%', height: '8%' },
+    { id: 3, title: 'Emergency Repair', client: 'Mark S.', time: '03:00 PM - 04:30 PM', day: 5, color: 'bg-amber-100 border-amber-300 text-amber-800', top: '70%', height: '15%' },
+    { id: 4, title: 'Initial Intake', client: 'Sarah Connor', time: '09:00 AM - 09:30 AM', day: 1, color: 'bg-purple-100 border-purple-300 text-purple-800', top: '15%', height: '5%' }
+  ]
 
-export default function BookingsPage() {
-  const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }))
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [selected, setSelected] = useState<Booking | null>(null)
-  const supabase = createBrowserClient()
-
-  const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
-
-  useEffect(() => {
-    fetchBookings()
-  }, [weekStart])
-
-  async function fetchBookings() {
-    const from = weekStart.toISOString()
-    const to = addDays(weekStart, 7).toISOString()
-    const { data } = await supabase
-      .from('bookings')
-      .select('*, service_types(name, duration_mins)')
-      .gte('start_time', from)
-      .lt('start_time', to)
-      .order('start_time')
-    setBookings(data ?? [])
-  }
-
-  async function updateStatus(id: string, status: string) {
-    await supabase.from('bookings').update({ status }).eq('id', id)
-    await fetchBookings()
-    setSelected(null)
-  }
-
-  const today = new Date()
+  const hours = Array.from({ length: 11 }, (_, i) => i + 8) // 8am to 6pm
+  const days = ['Mon 8', 'Tue 9', 'Wed 10', 'Thu 11', 'Fri 12', 'Sat 13', 'Sun 14']
 
   return (
-    <div className="max-w-5xl animate-fade-in">
+    <div className="h-[calc(100vh-64px)] flex flex-col animate-fade-in bg-white">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold text-ink">Bookings</h1>
-          <p className="text-sm text-ink-muted mt-0.5">
-            {bookings.length} booking{bookings.length !== 1 ? 's' : ''} this week
-          </p>
+          <h1 className="text-2xl font-bold text-[#0F172A] tracking-tight">Calendar</h1>
+          <p className="text-[#64748B] text-[15px] mt-1">Manage your AI-scheduled appointments.</p>
         </div>
-        <button className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors">
-          <Plus size={15} /> Add manually
-        </button>
+        <div className="flex gap-4">
+          <div className="flex items-center bg-[#F8FAFC] border border-[#E2E8F0] rounded-xl p-1 shadow-sm h-11">
+            <button className="px-4 py-1.5 text-sm font-semibold text-[#0F172A] bg-white rounded-lg shadow-sm">Week</button>
+            <button className="px-4 py-1.5 text-sm font-semibold text-[#64748B] hover:text-[#0F172A] rounded-lg transition-colors">Month</button>
+          </div>
+          <button className="flex items-center justify-center gap-2 bg-[#2eb87a] text-white px-5 rounded-xl text-sm font-semibold hover:bg-[#259b66] transition-all shadow-[0_4px_14px_rgba(46,184,122,0.3)]">
+            <Plus size={18} strokeWidth={2.5} /> New Booking
+          </button>
+        </div>
       </div>
 
-      {/* Week nav */}
-      <div className="flex items-center gap-3 mb-4">
-        <button onClick={() => setWeekStart(d => addDays(d, -7))} className="p-2 rounded-xl border border-surface-border hover:bg-surface-muted transition-colors">
-          <ChevronLeft size={16} />
-        </button>
-        <span className="text-sm font-medium text-ink">
-          {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-        </span>
-        <button onClick={() => setWeekStart(d => addDays(d, 7))} className="p-2 rounded-xl border border-surface-border hover:bg-surface-muted transition-colors">
-          <ChevronRight size={16} />
-        </button>
-        <button onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))} className="text-xs text-brand-600 hover:text-brand-700 px-3 py-1.5 border border-brand-200 rounded-xl transition-colors ml-2">
-          Today
-        </button>
+      {/* Calendar Controls */}
+      <div className="flex items-center justify-between border border-[#E2E8F0] p-4 rounded-t-2xl border-b-0 bg-[#F8FAFC]">
+        <div className="flex items-center gap-4">
+          <button className="px-5 py-2 border border-[#E2E8F0] rounded-xl text-[14px] font-semibold text-[#334155] bg-white hover:bg-[#F1F5F9] transition-colors shadow-sm">
+            Today
+          </button>
+          <div className="flex items-center gap-1 bg-white border border-[#E2E8F0] rounded-xl p-1 shadow-sm">
+            <button className="p-1.5 hover:bg-[#F1F5F9] rounded-lg text-[#64748B] transition-colors"><ChevronLeft size={18} /></button>
+            <div className="w-[1px] h-4 bg-[#E2E8F0] mx-1"></div>
+            <button className="p-1.5 hover:bg-[#F1F5F9] rounded-lg text-[#64748B] transition-colors"><ChevronRight size={18} /></button>
+          </div>
+          <span className="text-[19px] font-bold text-[#0F172A] ml-2">April 2024</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="flex items-center gap-2 px-4 py-2 hover:bg-[#E2E8F0] rounded-xl font-medium text-[#64748B] text-sm transition-colors cursor-pointer">
+            <Filter size={16} /> Filters
+          </button>
+        </div>
       </div>
 
-      {/* Calendar grid */}
-      <div className="bg-white rounded-2xl border border-surface-border shadow-card overflow-hidden">
-        {/* Day headers */}
-        <div className="grid grid-cols-8 border-b border-surface-border">
-          <div className="py-3 px-3 text-xs text-ink-faint" />
-          {weekDays.map(day => (
-            <div key={day.toISOString()} className={`py-3 text-center border-l border-surface-border ${isSameDay(day, today) ? 'bg-brand-50' : ''}`}>
-              <p className="text-xs text-ink-faint">{format(day, 'EEE')}</p>
-              <p className={`text-sm font-semibold mt-0.5 ${isSameDay(day, today) ? 'text-brand-600' : 'text-ink'}`}>
-                {format(day, 'd')}
-              </p>
-            </div>
-          ))}
-        </div>
-
-        {/* Time slots */}
-        <div className="max-h-[520px] overflow-y-auto">
-          {HOURS.map(hour => (
-            <div key={hour} className="grid grid-cols-8 border-b border-surface-border last:border-0 min-h-[52px]">
-              <div className="py-2 px-3 text-xs text-ink-faint text-right pr-3 pt-2.5">
-                {format(new Date().setHours(hour, 0), 'h a')}
+      {/* Grid Container */}
+      <div className="flex-1 bg-white border border-[#E2E8F0] rounded-b-2xl overflow-hidden flex flex-col shadow-sm">
+        
+        {/* Day Headers */}
+        <div className="grid grid-cols-8 border-b border-[#E2E8F0]">
+          <div className="col-span-1 border-r border-[#E2E8F0] p-3 text-[11px] font-bold text-[#94A3B8] text-center uppercase tracking-wider flex items-center justify-center bg-[#F8FAFC]">
+            GMT-4
+          </div>
+          {days.map((day, i) => {
+            const isToday = i === 2 // Mock today
+            const [name, num] = day.split(' ')
+            return (
+              <div key={day} className={`col-span-1 border-r border-[#E2E8F0] last:border-0 p-3 pt-4 text-center ${isToday ? 'bg-[#F0FDF4]' : 'bg-white'}`}>
+                <div className={`text-[13px] font-semibold mb-2 uppercase tracking-wide ${isToday ? 'text-[#2eb87a]' : 'text-[#64748B]'}`}>{name}</div>
+                <div className={`text-2xl font-bold mx-auto w-12 h-12 flex items-center justify-center rounded-full transition-all ${isToday ? 'bg-[#2eb87a] text-white shadow-md' : 'text-[#0F172A]'}`}>
+                  {num}
+                </div>
               </div>
-              {weekDays.map(day => {
-                const dayBookings = bookings.filter(b => {
-                  const t = parseISO(b.start_time)
-                  return isSameDay(t, day) && t.getHours() === hour
-                })
-                return (
-                  <div key={day.toISOString()} className={`border-l border-surface-border p-1 ${isSameDay(day, today) ? 'bg-brand-50/40' : ''}`}>
-                    {dayBookings.map(b => (
-                      <button
-                        key={b.id}
-                        onClick={() => setSelected(b)}
-                        className={`w-full text-left rounded-lg px-2 py-1.5 text-xs font-medium mb-1 transition-colors ${
-                          b.status === 'confirmed' ? 'bg-brand-100 text-brand-800 hover:bg-brand-200' :
-                          b.status === 'cancelled' ? 'bg-red-50 text-red-500 line-through' :
-                          'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                        }`}
-                      >
-                        <p className="truncate">{b.caller_name || 'Unknown'}</p>
-                        <p className="text-xs font-normal opacity-70">{b.service_types?.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                )
-              })}
-            </div>
-          ))}
+            )
+          })}
         </div>
-      </div>
 
-      {/* Booking detail panel */}
-      {selected && (
-        <div className="fixed inset-0 bg-ink/20 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-3xl shadow-lifted border border-surface-border p-6 w-full max-w-sm animate-slide-up" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-semibold text-ink">Booking details</h3>
-              <StatusBadge status={selected.status} />
+        {/* Time Grid with Scroll */}
+        <div className="flex-1 overflow-y-auto" style={{ scrollbarWidth: 'thin' }}>
+          <div className="relative min-h-[1000px]">
+            {/* Horizontal Lines */}
+            <div className="absolute inset-0 grid grid-cols-8 pointer-events-none">
+              <div className="col-span-1 border-r border-[#E2E8F0] flex flex-col bg-[#F8FAFC]">
+                {hours.map(h => (
+                  <div key={h} className="h-24 border-b border-[#E2E8F0] relative">
+                    <span className="absolute -top-[10px] right-3 text-[12px] font-semibold text-[#64748B]">
+                      {h > 12 ? `${h-12} PM` : h === 12 ? '12 PM' : `${h} AM`}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Vertical Grid Columns */}
+              {Array.from({length: 7}).map((_, i) => (
+                <div key={i} className={`col-span-1 border-r border-[#E2E8F0] last:border-0 flex flex-col ${i === 2 ? 'bg-[#F0FDF4] bg-opacity-30' : ''}`}>
+                  {hours.map(h => (
+                    <div key={h} className="h-24 border-b border-[#F1F5F9] relative group">
+                       <div className="absolute inset-x-0 top-1/2 border-b border-dashed border-[#F1F5F9]"></div>
+                    </div>
+                  ))}
+                </div>
+              ))}
             </div>
 
-            <div className="space-y-3 mb-6">
-              <Row icon={<User size={14} />} label="Name" value={selected.caller_name || 'Unknown'} />
-              <Row icon={<Phone size={14} />} label="Phone" value={selected.caller_phone || '—'} />
-              <Row icon={<Calendar size={14} />} label="Date" value={format(parseISO(selected.start_time), 'EEE, MMM d yyyy')} />
-              <Row icon={<Clock size={14} />} label="Time" value={`${format(parseISO(selected.start_time), 'h:mm a')} – ${format(parseISO(selected.end_time), 'h:mm a')}`} />
-              {selected.service_types && <Row icon={<Calendar size={14} />} label="Service" value={selected.service_types.name} />}
-              {selected.notes && <Row icon={<Calendar size={14} />} label="Notes" value={selected.notes} />}
+            {/* Bookings Overlay */}
+            <div className="absolute inset-0 grid grid-cols-8 px-1 pointer-events-none">
+              <div className="col-span-1" /> {/* Offset for Time column */}
+              
+              {Array.from({length: 7}).map((_, colIdx) => (
+                <div key={colIdx} className="col-span-1 relative pointer-events-auto h-full">
+                  {mockBookings.filter(b => b.day === colIdx).map(booking => {
+                    return (
+                      <div 
+                        key={booking.id}
+                        className={`absolute left-1 right-1 rounded-xl border p-3 shadow-sm flex flex-col gap-1 cursor-pointer transition-transform hover:scale-[1.02] hover:shadow-md ${booking.color}`}
+                        style={{ top: booking.top, height: booking.height, zIndex: 10 }}
+                      >
+                        <div className="text-[13px] font-bold leading-tight">{booking.title}</div>
+                        <div className="text-[11px] font-medium opacity-80 mt-auto">{booking.time}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
             </div>
 
-            <div className="flex gap-2">
-              {selected.status !== 'confirmed' && (
-                <button onClick={() => updateStatus(selected.id, 'confirmed')} className="flex-1 bg-brand-500 hover:bg-brand-600 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
-                  Confirm
-                </button>
-              )}
-              {selected.status !== 'cancelled' && (
-                <button onClick={() => updateStatus(selected.id, 'cancelled')} className="flex-1 border border-surface-border text-ink-muted hover:bg-surface-muted py-2.5 rounded-xl text-sm transition-colors">
-                  Cancel
-                </button>
-              )}
+            {/* Current Time Line Indicator Map */}
+            <div className="absolute left-0 right-0 border-t-2 border-[#ef4444] z-20 pointer-events-none" style={{ top: '35%' }}>
+              <div className="absolute left-[12.5%] -top-[5px] w-2.5 h-2.5 bg-[#ef4444] rounded-full" />
             </div>
+
           </div>
         </div>
-      )}
-    </div>
-  )
-}
-
-function Row({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="text-ink-faint mt-0.5">{icon}</span>
-      <div>
-        <p className="text-xs text-ink-faint">{label}</p>
-        <p className="text-sm text-ink">{value}</p>
       </div>
     </div>
   )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    confirmed: 'bg-brand-50 text-brand-700',
-    pending: 'bg-amber-50 text-amber-700',
-    cancelled: 'bg-red-50 text-red-600',
-    completed: 'bg-surface-muted text-ink-muted',
-  }
-  return <span className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${map[status] ?? 'bg-surface-muted text-ink-muted'}`}>{status}</span>
 }

@@ -9,12 +9,12 @@ const OPTS = [
   { icon: '🔕', n: 'None', s: 'Dashboard only' },
 ]
 
-export default function StepNotifications({ nextStep }: any) {
+export default function StepNotifications({ nextStep, prevStep }: any) {
   const [sel, setSel] = useState<number | null>(null)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 7 }}>
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-2">
         {OPTS.map((o, i) => (
           <div key={i} onClick={() => setSel(i)} style={{
             padding: 11, borderRadius: 14, textAlign: 'center', cursor: 'pointer', transition: 'all .15s',
@@ -27,8 +27,11 @@ export default function StepNotifications({ nextStep }: any) {
           </div>
         ))}
       </div>
-      <div style={W.btnRow}>
-        <button onClick={() => nextStep(sel !== null ? OPTS[sel].n : 'SMS')} style={W.gbtn()}>Next →</button>
+      <div style={{...W.btnRowAction, justifyContent: 'space-between'}}>
+        <div style={W.btnRow}>
+          <button onClick={prevStep} style={W.backBtn}>← Back</button>
+          <button onClick={() => nextStep(sel !== null ? OPTS[sel].n : 'SMS')} style={W.gbtn()}>Next →</button>
+        </div>
         <button onClick={() => nextStep(undefined, 'Skipped')} style={W.skip}>Skip</button>
       </div>
     </div>

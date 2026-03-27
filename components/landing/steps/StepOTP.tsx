@@ -1,10 +1,10 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { GreenCard } from './shared'
+import { GreenCard, W } from './shared'
 
 type OtpState = 'waiting' | 'expired' | 'incorrect' | 'verified'
 
-export default function StepOTP({ nextStep, agentSay, setInputPlaceholder, setInputDisabled, inputVal }: any) {
+export default function StepOTP({ nextStep, prevStep, agentSay, setInputPlaceholder, setInputDisabled, inputVal }: any) {
   const [otpState, setOtpState] = useState<OtpState>('waiting')
   const [secs, setSecs] = useState(60)
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -59,6 +59,7 @@ export default function StepOTP({ nextStep, agentSay, setInputPlaceholder, setIn
   const cardState = otpState === 'incorrect' ? 'err' : otpState === 'verified' ? 'ok' : 'default'
 
   return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
     <GreenCard state={cardState}>
       {/* Left icon */}
       <div style={{
@@ -121,6 +122,10 @@ export default function StepOTP({ nextStep, agentSay, setInputPlaceholder, setIn
 
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </GreenCard>
+    <div style={{...W.btnRowAction, marginTop: 4}}>
+      <button onClick={prevStep} style={W.backBtn}>← Back</button>
+    </div>
+    </div>
   )
 }
 
