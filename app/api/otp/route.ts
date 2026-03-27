@@ -27,10 +27,22 @@ export async function POST(req: NextRequest) {
     try {
       if (isEmail) {
         // Send via Resend
+        const resendApiKey = process.env.RESEND_API_KEY
+        
+        if (!resendApiKey) {
+          console.error('[v0] RESEND_API_KEY not found in env')
+          await redis.del(key)
+          return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
+        }
+
         const { Resend } = await import('resend')
-        const resend = new Resend(process.env.RESEND_API_KEY)
-        await resend.emails.send({
-          from: process.env.RESEND_FROM_EMAIL || 'verify@meclients.com',
+        const resend = new Resend(resendApiKey)
+        
+        const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev'
+        console.log('[v0] Sending OTP email to:', contact, 'from:', fromEmail)
+        
+        const result = await resend.emails.send({
+          from: fromEmail,
           to: contact,
           subject: `Your verification code: ${otp}`,
           html: `
@@ -49,6 +61,14 @@ export async function POST(req: NextRequest) {
             </div>
           `,
         })
+        
+        console.log('[v0] Resend result:', JSON.stringify(result))
+        
+        if (result.error) {
+          console.error('[v0] Resend error:', result.error)
+          await redis.del(key)
+          return NextResponse.json({ error: result.error.message || 'Failed to send email' }, { status: 500 })
+        }
       } else {
         // Send via Twilio SMS
         const twilio = (await import('twilio')).default
