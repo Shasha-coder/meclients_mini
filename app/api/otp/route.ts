@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
         const resendApiKey = process.env.RESEND_API_KEY
         
         if (!resendApiKey) {
-          console.error('[v0] RESEND_API_KEY not found in env')
           await redis.del(key)
           return NextResponse.json({ error: 'Email service not configured' }, { status: 500 })
         }
@@ -38,11 +37,8 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import('resend')
         const resend = new Resend(resendApiKey)
         
-        const fromEmail = process.env.RESEND_FROM_EMAIL || 'support@meclients.com'
-        console.log('[v0] Sending OTP email to:', contact, 'from:', fromEmail, 'RESEND_FROM_EMAIL env:', process.env.RESEND_FROM_EMAIL ? 'SET' : 'NOT SET')
-        
         const result = await resend.emails.send({
-          from: fromEmail,
+          from: 'meclients <support@meclients.com>',
           to: contact,
           subject: `Your verification code: ${otp}`,
           html: `
@@ -62,10 +58,7 @@ export async function POST(req: NextRequest) {
           `,
         })
         
-        console.log('[v0] Resend result:', JSON.stringify(result))
-        
         if (result.error) {
-          console.error('[v0] Resend error:', result.error)
           await redis.del(key)
           return NextResponse.json({ error: result.error.message || 'Failed to send email' }, { status: 500 })
         }
