@@ -15,21 +15,25 @@ module.exports = {
           200: '#aeeac8',
           300: '#78d8a7',
           400: '#4abf84',
-          500: '#5fca8a', // primary green (matches landing)
-          600: '#3da86e',
+          500: '#2eb87a', // primary green (matches landing)
+          600: '#1a7a4a',
           700: '#2e8557',
           800: '#276845',
           900: '#1e5236',
         },
         surface: {
           DEFAULT: '#ffffff',
-          muted: '#f7f8fa',
-          border: '#e8edf2',
+          muted: '#f8fafc',
+          subtle: '#f1f5f9',
+        },
+        border: {
+          DEFAULT: '#e2e8f0',
+          light: '#f1f5f9',
         },
         ink: {
           DEFAULT: '#0f172a',
           muted: '#64748b',
-          faint: '#94a3b8',
+          subtle: '#94a3b8',
         },
       },
       fontFamily: {

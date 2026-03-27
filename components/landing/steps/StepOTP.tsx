@@ -1,6 +1,6 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
-import { GreenCard, W } from './shared'
+import { W } from './shared'
 
 type OtpState = 'waiting' | 'expired' | 'incorrect' | 'verified' | 'verifying'
 

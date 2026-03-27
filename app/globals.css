@@ -25,11 +25,14 @@
   }
 
   * {
-    @apply border-border;
+    border-color: var(--border);
   }
 
   body {
-    @apply bg-surface text-ink antialiased;
+    background-color: var(--surface);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 
@@ -45,12 +48,14 @@
 
   /* Focus states */
   input:focus, select:focus, textarea:focus {
-    @apply outline-none ring-2 ring-[var(--brand)] ring-opacity-30;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(46, 184, 122, 0.3);
   }
 
   /* Selection color */
   ::selection {
-    @apply bg-[var(--brand-light)] text-[var(--brand-dark)];
+    background-color: var(--brand-light);
+    color: var(--brand-dark);
   }
 }
 
@@ -62,12 +67,18 @@
   }
 
   .card-hover {
-    @apply transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5;
+    transition: all 0.2s ease;
+  }
+  .card-hover:hover {
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
   }
 
   /* Premium glassmorphism effect */
   .glass {
-    @apply bg-white/80 backdrop-blur-xl;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border: 1px solid rgba(255, 255, 255, 0.5);
   }
 
@@ -103,12 +114,18 @@
 
   /* Better button styles */
   .btn-primary {
-    @apply bg-[var(--brand)] text-white font-semibold px-6 py-3 rounded-xl;
+    background-color: var(--brand);
+    color: white;
+    font-weight: 600;
+    padding: 12px 24px;
+    border-radius: 12px;
     box-shadow: var(--shadow-brand);
+    border: none;
+    cursor: pointer;
   }
 
   .btn-primary:hover {
-    @apply bg-[var(--brand-dark)];
+    background-color: var(--brand-dark);
     transform: translateY(-1px);
     box-shadow: 0 12px 32px rgba(46, 184, 122, 0.35);
   }
@@ -118,11 +135,18 @@
   }
 
   .btn-secondary {
-    @apply bg-[var(--surface-subtle)] text-[var(--ink-muted)] font-medium px-5 py-2.5 rounded-xl border border-[var(--border)];
+    background-color: var(--surface-subtle);
+    color: var(--ink-muted);
+    font-weight: 500;
+    padding: 10px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    cursor: pointer;
   }
 
   .btn-secondary:hover {
-    @apply bg-[var(--surface-muted)] text-[var(--ink)];
+    background-color: var(--surface-muted);
+    color: var(--ink);
   }
 }
 
