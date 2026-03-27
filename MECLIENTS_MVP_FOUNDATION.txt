@@ -1,0 +1,40 @@
+MECLIENTS: THE AI FRONT-DESK OPERATING SYSTEM
+FOUNDATION BLUEPRINT (MVP v1.0)
+
+I. CORE PRODUCT TRUTH
+* meclients is not an "AI call agent builder" but a zero-config, vertical front-desk operating system.
+* The user experience is strictly: Choose industry -> enter business basics -> choose number -> pay -> agent goes live.
+* The platform must be provider-agnostic, allowing the internal swap of Retell for Bland, Vapi, or others with minimal disruption.
+
+II. THE FRICTIONLESS ONBOARDING FLOW (A TO Z)
+* Step A: Visitor lands on the minimalist page and enters a Website URL or Uploads a Business PDF.
+* Step B: The system uses Firecrawl to scrape the site or parses the PDF to extract business basics, hours, and services.
+* Step C: System hits the Retell AI API to create a draft agent using a compiled "Vertical Pack" prompt.
+* Step D (THE TEST): User talks to the AI in the browser. No account or payment required yet.
+* Step E: User is impressed and clicks "Hire this Agent".
+* Step F: User is redirected to Stripe Checkout for a high-ticket setup fee + first month.
+* Step G: Once payment is valid, the system creates a Twilio Subaccount and SIP Trunk.
+* Step H: System purchases a local number and binds it to the Retell Agent via the SIP Trunk.
+* Step I: Client receives an email with their new number and "Call Forwarding" instructions.
+* Step Z: Daily ROI summaries are sent via Email/SMS; AI self-improves based on call patterns.
+
+III. ARCHITECTURE: THE FOUR PLANES
+* 1. Control Plane (The Brain): Next.js + Supabase. Handles tenants, billing, and provisioning states.
+* 2. Communication Plane (Telephony): Twilio (SIP Trunking). Manages numbers and voice routing.
+* 3. Intelligence Plane (AI): Retell AI. Handles conversational logic, voices, and knowledge sync.
+* 4. Reliability Plane (Safety): Supabase Queues. Manages retries, fraud guards, and spend limits.
+
+IV. DATABASE FOUNDATION (SUPABASE)
+* tenants: Identity and lifecycle status (active, past_due, suspended).
+* business_profiles: Scraped data, hours, services, and escalation phone.
+* retell_agents: Stores `retell_agent_id` and versioned prompt snapshots.
+* calls: Stores transcripts, summaries, and AI-detected outcomes.
+* provisioning_jobs: Durable state machine tracking Step A to Step Z.
+
+V. NON-NEGOTIABLE BUILD RULES
+* Billing Firewall: Never launch high-cost operations without entitlement and billing checks.
+* No-Dashboard UX: Clients never see raw Retell or Twilio settings; they only receive ROI reports.
+* Admin Review Gate: An internal admin must approve or edit AI prompts before they go "Production Live".
+* Provider Agnostic: All code for Retell and Twilio must be wrapped behind internal adapters.
+* Verified Webhooks: Never trust a webhook (Stripe, Twilio, Retell) without signature verification.
+* ROI-First: The system must calculate and show business value (Bookings x Avg. Order Value).
